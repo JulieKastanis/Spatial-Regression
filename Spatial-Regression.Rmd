@@ -63,17 +63,17 @@ View(data)
 names(data)[names(data)=="X2016.child.poverty"] <- "child.pov.2016"
 ```
 
-Subset data for information from the state of Kentucky 
+Subset data for information from the state of Florida 
 
-```{r call-in_kentucky}
-ky_pov <- data %>% subset(State == "KY")
+```{r call-in_florida}
+fl_pov <- data %>% subset(State == "FL")
 
 ```
 
 checking data for any missing data or errors
 
-```{r summary_ky}
-summary(ky_pov)
+```{r summary_fl}
+summary(fl_pov)
 ```
 
 
@@ -95,7 +95,7 @@ options(scipen = 5)
 ```
 
 ```{r run_OLS_test}
-ols <- lm(equation, data=ky_pov)
+ols <- lm(equation, data=fl_pov)
 summary(ols)
 ```
 
@@ -107,10 +107,10 @@ In order to create a county polygon using data from Federal Information Processi
 
 fips <- county.fips
 fips.codes <- separate(data = fips, col = polyname, into = c("state", "county"), sep = ",")
-ky_fips <- subset(fips.codes, state=="kentucky", select=fips)
+fl_fips <- subset(fips.codes, state=="florida", select=fips)
 
-kentucky <- map(database = "county", regions = "kentucky", fill=T, plot=F)
-ky_sp = map2SpatialPolygons(kentucky,ky_fips$fips,CRS("+proj=longlat"))
+florida <- map(database = "county", regions = "florida", fill=T, plot=F)
+fl_sp = map2SpatialPolygons(florida,fl_fips$fips,CRS("+proj=longlat"))
 
 ```
 
@@ -119,7 +119,7 @@ ky_sp = map2SpatialPolygons(kentucky,ky_fips$fips,CRS("+proj=longlat"))
 cleangeo like janitor, but for spatial data
 
 ```{r cleangeo}
-cleaned <- clgeo_Clean(ky_sp)
+cleaned <- clgeo_Clean(fl_sp)
 neighb.data <- poly2nb(cleaned, queen=T)
 cont.neighb <- nb2listw(neighb.data,style="W", zero.policy = TRUE)
 ```
@@ -142,7 +142,7 @@ lm.LMtests(ols, cont.neighb, test="all")
 # Spatially lagged X Model
 
 ```{r SLX}
-SLX.model <- spatialreg::lmSLX(equation, data=ky_pov, cont.neighb)
+SLX.model <- spatialreg::lmSLX(equation, data=fl_pov, cont.neighb)
 summary(SLX.model)
 ```
 
@@ -155,6 +155,6 @@ summary(spatialreg::impacts(SLX.model, cont.neighb), zstats = TRUE)[["pzmat"]]
 
 #Spatial Lag Model
 ```{r spatial lag model}
-sp.lag.model <- spatialreg::lagsarlm(equation, data=ky_pov, cont.neighb)
+sp.lag.model <- spatialreg::lagsarlm(equation, data=fl_pov, cont.neighb)
 summary(sp.lag.model, Nagelkerke = TRUE)
 ```
