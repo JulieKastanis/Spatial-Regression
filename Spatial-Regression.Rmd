@@ -18,10 +18,143 @@ When you save the notebook, an HTML file containing the code and output will be 
 The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
 
 
-```{r packages}
-packages <- c("biscale", "cleangeo", "cowplot", "dplyr", "geosphere", 
-            "ggplot2", "maps", "maptools", "rgdal", "rgeos", "sf", 
-            "sp", "spatialreg", "spdep", "tidyr")
-sapply(packages, require, character.only=T)
+```{r library}
+library(biscale)
+library(cleangeo)
+library(cowplot)
+library(dplyr)
+library(geosphere)
+library(ggplot2)
+library(maps)
+library(maptools)
+library(rgdal)
+library(rgeos)
+library(sf)
+library(sp)
+library(spatialreg)
+library(spdep)
+library(tidyr)
+```
 
+```{r data_import}
+data <- read.csv('./Data/childpov18_southfull.csv', 
+                 colClasses = c("character", "character", "character", 
+                                "numeric", "numeric", "numeric", "numeric",
+                                "numeric", "numeric", "numeric", "numeric",
+                                "numeric", "numeric", "numeric", "numeric", 
+                                "numeric", "numeric", "numeric", "numeric",
+                                "numeric", "numeric", "numeric", "numeric",
+                                "numeric", "numeric", "numeric", "numeric", 
+                                "numeric", "numeric", "numeric", "numeric",
+                                "numeric", "numeric", "numeric", "numeric"))
+
+
+```
+
+
+
+```{r view_data}
+View(data)
+```
+
+
+
+```{r fix_names}
+names(data)[names(data)=="X2016.child.poverty"] <- "child.pov.2016"
+```
+
+Subset data for information from the state of Kentucky 
+
+```{r call-in_kentucky}
+ky_pov <- data %>% subset(State == "KY")
+
+```
+
+checking data for any missing data or errors
+
+```{r summary_ky}
+summary(ky_pov)
+```
+
+
+
+# First let's start with Ordinary Least Squares
+
+
+```{r OLS}
+equation <- child.pov.2016 ~ rural + urban + lnmanufacturing + lnag + 
+  lnretail + lnhealthss + lnconstruction + lnlesshs + 
+  lnunemployment + lnsinglemom + lnblack + lnhispanic + 
+  lnuninsured + lnincome_ratio + lnteenbirth + lnunmarried
+```
+
+limit set for numbers greater than 5 decimal places in the output and summaries
+
+```{r options}
+options(scipen = 5)
+```
+
+```{r run_OLS_test}
+ols <- lm(equation, data=ky_pov)
+summary(ols)
+```
+
+
+#Creating a list of contiguity neighbors
+Used to determine any spatial relationships in the residuals. 
+In order to create a county polygon using data from Federal Information Processing Standards codes (FIPS). 
+```{r fips codes}
+
+fips <- county.fips
+fips.codes <- separate(data = fips, col = polyname, into = c("state", "county"), sep = ",")
+ky_fips <- subset(fips.codes, state=="kentucky", select=fips)
+
+kentucky <- map(database = "county", regions = "kentucky", fill=T, plot=F)
+ky_sp = map2SpatialPolygons(kentucky,ky_fips$fips,CRS("+proj=longlat"))
+
+```
+
+
+
+cleangeo like janitor, but for spatial data
+
+```{r cleangeo}
+cleaned <- clgeo_Clean(ky_sp)
+neighb.data <- poly2nb(cleaned, queen=T)
+cont.neighb <- nb2listw(neighb.data,style="W", zero.policy = TRUE)
+```
+
+
+# Moran's Correlation and LaGrange Multiplier Tests
+
+examines residuals of the OLS regression with a sptial relationship matrix
+
+
+```{r morans_correlation}
+lm.morantest(ols, cont.neighb)
+```
+
+
+lm.LMtests(ols, cont.neighb, test="all")
+
+
+
+# Spatially lagged X Model
+
+```{r SLX}
+SLX.model <- spatialreg::lmSLX(equation, data=ky_pov, cont.neighb)
+summary(SLX.model)
+```
+
+```{r SLX_summary}
+summary(spatialreg::impacts(SLX.model, cont.neighb), zstats = TRUE)[["pzmat"]]
+```
+
+
+
+
+#Spatial Lag Model
+```{r spatial lag model}
+sp.lag.model <- spatialreg::lagsarlm(equation, data=ky_pov, cont.neighb)
+summary(sp.lag.model, Nagelkerke = TRUE)
 ```
