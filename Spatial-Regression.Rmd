@@ -115,16 +115,31 @@ fl_sp = map2SpatialPolygons(florida,fl_fips$fips,CRS("+proj=longlat"))
 ```
 
 
+```{r require_maptools}
+require(maptools)
+sf::sf_use_s2(FALSE)
+```
 
 cleangeo like janitor, but for spatial data
 
 ```{r cleangeo}
-cleaned <- clgeo_Clean(fl_sp)
+file <- system.file("extdata", "example.shp", package = "cleangeo")
+sp <- readShapePoly(file)
+ 
+ cleaned <- clgeo_Clean(fl_sp)
+ report.clean <- clgeo_CollectionReport(cleaned)
+ clgeo_SummaryReport(report.clean)
+```
+
+```{r neighbor_data}
 neighb.data <- poly2nb(cleaned, queen=T)
 cont.neighb <- nb2listw(neighb.data,style="W", zero.policy = TRUE)
 ```
 
 
+
+
+Now that we have created a spatial dataset and a list of neighbors, we can determine if there is any residual spatial dependence.
 # Moran's Correlation and LaGrange Multiplier Tests
 
 examines residuals of the OLS regression with a sptial relationship matrix
@@ -133,9 +148,25 @@ examines residuals of the OLS regression with a sptial relationship matrix
 ```{r morans_correlation}
 lm.morantest(ols, cont.neighb)
 ```
+Looking above, we can see a significant p-value of 0.007844, so we would reject the null hypothesis that says there is no spatial correlation in the residuals.
+
+**This would suggest we should be using a spatial model.
 
 
+#LaGrange Multiplier Test
+```{r LaGrange_Test}
 lm.LMtests(ols, cont.neighb, test="all")
+```
+The results show: 
+
+LMerr       LMlag        RLMerr     RLMlag    SARMA
+
+0.1008      0.2543      0.2167      0.7156     0.2435      
+
+
+
+
+Closest model would be LMerr with a p-value of 0.1008, but is still high 
 
 
 
@@ -145,16 +176,180 @@ lm.LMtests(ols, cont.neighb, test="all")
 SLX.model <- spatialreg::lmSLX(equation, data=fl_pov, cont.neighb)
 summary(SLX.model)
 ```
+Note p-value of this model is significant, but no variables stick out here, except retail with a p-value of 0.079 
+
 
 ```{r SLX_summary}
 summary(spatialreg::impacts(SLX.model, cont.neighb), zstats = TRUE)[["pzmat"]]
 ```
 
-
+Not much to see above. 
 
 
 #Spatial Lag Model
 ```{r spatial lag model}
 sp.lag.model <- spatialreg::lagsarlm(equation, data=fl_pov, cont.neighb)
 summary(sp.lag.model, Nagelkerke = TRUE)
+```
+
+```{r summary_spatial lag}
+summary(spatialreg::impacts(sp.lag.model, listw = cont.neighb, R=100), zstats = TRUE)[["pzmat"]]
+```
+This model did have a significant p-value of 0.0426
+
+
+#Spatial Error Model
+
+```{r aptial_error_model}
+sp.err.model <- spatialreg::errorsarlm(equation, data=fl_pov, cont.neighb)
+summary(sp.err.model, Nagelkerke = TRUE)
+```
+Note significant p-value
+
+
+
+
+
+
+```{r Hausman_test}
+spatialreg::Hausman.test(sp.err.model)
+```
+
+The Hausman test resulted in a high p-value of 0.5553, which would fail to reject the null hypothesis that spatial error model is needed. 
+
+
+
+#Spatial Durbin Error Model
+The Spatial Durbin Error Model contains components of OLS, SLX, and Spatial Error models.
+
+```{r Durbin_test}
+
+sd.err <- spatialreg::errorsarlm(equation, fl_pov, cont.neighb, etype = "emixed")
+sdm <- spatialreg::lagsarlm(equation, fl_pov, cont.neighb, type = "mixed")
+```
+
+Remembering that the Spatial Durbin Error Model is a local model which includes the errors and lag x values, we can view a summary of that model.
+
+
+```{r summary_Durbin_model}
+summary(sd.err, Nagelkerke = TRUE)
+```
+Model not significant with a p-value of 0.17444
+
+Examining the impacts matrix as we have before we can determine if the Spatial Durbin Error Model is the most appropriate model for our data or if we should restrict the model to a spatial error, SLX, or OLS model.
+
+```{r summary_dem}
+
+summary(spatialreg::impacts(sd.err, listw = cont.neighb, R = 100), zstats = TRUE)[["pzmat"]]
+```
+
+*** This model did however, produce significant results for variables retail and healthss, 
+
+
+This will help us test the HO that we should restrict the model to a more simple model. The first step is to determine if we should restrict the model from a Spatial Durbin Error model to a spatial error mode.
+
+```{r spatial_error_model}
+LR.Sarlm(sd.err,sp.err.model)
+```
+For this model, we would fail to reject the null hypothesis with a p-value of 0.079
+
+
+
+
+
+#Creating a list of K-neighbors
+
+reate xy data from the polygons
+
+```{r k-neighbors}
+all.xy <-centroid(fl_sp)
+colnames(all.xy) <- c("x","y")
+```
+
+
+
+We will examine k = 1, k = 3, and k = 5. Then we need to calculate the distance value so the model can create a radius to encompass the neighbors. Finally, we need to produce the list of neighbors within the neighborhood.
+
+
+
+```{r neighbors}
+#Create neighbors
+all.dist.k1 <- knn2nb(knearneigh(all.xy, k=1, longlat = TRUE))
+all.dist.k3 <- knn2nb(knearneigh(all.xy, k=3, longlat = TRUE))
+all.dist.k5 <- knn2nb(knearneigh(all.xy, k=5, longlat = TRUE))
+all.dist.k7 <- knn2nb(knearneigh(all.xy, k=7, longlat = TRUE))
+
+#Determine max k distance value to neighbor
+all.max.k1 <- max(unlist(nbdists(all.dist.k1, all.xy, longlat=TRUE)))
+all.max.k3 <- max(unlist(nbdists(all.dist.k3, all.xy, longlat=TRUE)))
+all.max.k5 <- max(unlist(nbdists(all.dist.k5, all.xy, longlat=TRUE)))
+all.max.k7 <- max(unlist(nbdists(all.dist.k7, all.xy, longlat=TRUE)))
+
+#Calculate neighbors based on distance
+all.sp.dist.k1 <- dnearneigh(all.xy, d1=0, d2=1 * all.max.k1, longlat = TRUE)
+all.sp.dist.k3 <- dnearneigh(all.xy, d1=0, d2=1 * all.max.k3, longlat = TRUE)
+all.sp.dist.k5 <- dnearneigh(all.xy, d1=0, d2=1 * all.max.k5, longlat = TRUE)
+all.sp.dist.k7 <- dnearneigh(all.xy, d1=0, d2=1 * all.max.k7, longlat = TRUE)
+
+#Create neighbor list
+all.dist.neighb.k1 <- nb2listw(all.sp.dist.k1,style="W", zero.policy = TRUE)
+all.dist.neighb.k3 <- nb2listw(all.sp.dist.k3,style="W", zero.policy = TRUE)
+all.dist.neighb.k5 <- nb2listw(all.sp.dist.k5,style="W", zero.policy = TRUE)
+all.dist.neighb.k7 <- nb2listw(all.sp.dist.k7,style="W", zero.policy = TRUE)
+```
+
+
+
+
+
+#Distance Lab Model
+
+calculating distance for k=1, k=3, and k=5
+
+```{r distance_lag_model}
+all.dist.lag.k1 <- spatialreg::lagsarlm(equation, data = fl_pov, listw = all.dist.neighb.k1)
+all.dist.lag.k3 <- spatialreg::lagsarlm(equation, data = fl_pov, listw = all.dist.neighb.k3)
+all.dist.lag.k5 <- spatialreg::lagsarlm(equation, data = fl_pov, listw = all.dist.neighb.k5)
+all.dist.lag.k7 <- spatialreg::lagsarlm(equation, data = fl_pov, listw = all.dist.neighb.k7)
+```
+
+
+Summary for k=1
+
+```{r k=1}
+summary(all.dist.lag.k1, Nagelkerke = TRUE)
+```
+For k=1, there is a high p-value of 0.455.
+
+
+
+
+Now summary for k=3
+
+```{r k=3}
+summary(all.dist.lag.k3, Nagelkerke = TRUE)
+```
+Another high p-value when looking at k=3
+
+
+
+
+
+summary for k=5
+
+```{r k=5}
+summary(all.dist.lag.k5, Nagelkerke = TRUE)
+```
+
+Another high p-value when looking at k=5
+
+
+
+
+
+
+
+
+```{r k=5}
+summary(all.dist.lag.k5, Nagelkerke = TRUE)
 ```
