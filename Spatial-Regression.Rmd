@@ -395,4 +395,79 @@ Distance     Lag     Model    Distance   Err    Model
 
 #Mapping the results 
 
+```{r output_data}
+dist.err.data <- summary(all.dist.err.k1, correlation=TRUE, Nagelkerke = TRUE)
 
+dist.err.output <- cbind.data.frame(fl_pov$FIPS,
+                                    dist.err.data$fitted.values, 
+                                    dist.err.data$residual, 
+                                    fl_pov$child.pov.2016, 
+                                    fl_pov$lnretail, 
+                                    fl_pov$lnhealthss, 
+                                    fl_pov$lnincome_ratio,
+                                    stringsAsFactors = FALSE)
+
+#Renaming columns
+colnames(dist.err.output) <- c("fips","fitted","resid","childpov",
+                        "Retail","Healthss","Income Ratio")
+```
+                        
+                        
+```{r fortify}                        
+                        
+                        
+fl_fortify <- fortify(fl_sp)
+
+fl_poly <- merge(x = fl_fortify, y = dist.err.output, 
+                 by.x = "id", by.y = "fips", all = TRUE)
+
+bivariate_data <- bi_class(fl_poly, x = childpov, y = Retail, 
+                           dim = 3, style = "quantile")
+
+legend <- bi_legend(pal = "GrPink",
+                    dim = 3,
+                    xlab = "Child Poverty",
+                    ylab = "Retail Work",
+                    size = 6)
+                    
+                    
+```                    
+                    
+
+
+```{r subset_us_mapppp}                 
+
+world <- map_data("world")
+states <- map_data("state")
+southern_states <- subset(states, region %in% 
+                            c("texas", "arkansas", "louisiana", "mississippi", 
+                              "alabama", "georgia", "florida", "north carolina",
+                              "south carolina", "tennessee", "oklahoma", 
+                              "kentucky", "west virginia", "virginia", 
+                              "maryland", "delaware", "district of columbia"))
+                              
+```
+
+```{r mapppp}                             
+retail_pov_map <- ggplot() + 
+  geom_polygon(data = world, aes(x=long,y=lat, group=group), fill = "gray95", color = "white") +
+  geom_polygon(data = states, aes(x=long,y=lat, group=group), fill = "gray", color = "white") +
+  geom_polygon(data = southern_states, aes(x=long,y=lat, group=group), fill = NA, size = 0.01, color = "white") +  
+  geom_polygon(data = bivariate_data, aes(x=long, y=lat, group=group, fill = bi_class), color = "grey50", show.legend = FALSE) + 
+  bi_scale_fill(pal = "GrPink", dim = 3) +
+  coord_map("conic", lat0 = 30, xlim=c(-88,-80), ylim=c(24,31)) +
+  theme_void() + theme(legend.title.align=0.5) +
+  theme(panel.background = element_rect(fill = 'deepskyblue'),
+        panel.grid.major = element_line(colour = NA)) +
+  labs(x = "Longitude", y = "Latitude", fill = "Child Poverty", 
+       title = "Bivariate Map of Child Poverty and Retail Work") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+retail_pov_map
+```
+
+```{r added legend}
+legend_map <- ggdraw() +
+  draw_plot(retail_pov_map, 0, 0, 1, 1) +
+  draw_plot(legend, -0.000000444, 0.12, 0.6, 0.30)
+legend_map
+```
