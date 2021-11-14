@@ -11,7 +11,7 @@ fig_height: 4
 
 
 
-```{r library}
+```{r library, include=FALSE}
 library(biscale)
 library(cleangeo)
 library(cowplot)
@@ -586,10 +586,10 @@ colnames(dist.err.output2) <- c("fips","fitted","resid","childpov",
                         
 fl_fortify2 <- fortify(fl_sp)
 
-fl_poly <- merge(x = fl_fortify, y = dist.err.output2, 
+fl_poly2 <- merge(x = fl_fortify, y = dist.err.output2, 
                  by.x = "id", by.y = "fips", all = TRUE)
 
-bivariate_data2 <- bi_class(fl_poly, x = childpov, y = Income_Ratio, 
+bivariate_data2 <- bi_class(fl_poly2, x = childpov, y = Income_Ratio, 
                            dim = 3, style = "quantile")
 
 legend2 <- bi_legend(pal = "DkViolet",
@@ -639,6 +639,93 @@ legend_map2 <- ggdraw() +
   draw_plot(legend2, -0.000000444, 0.12, 0.6, 0.30)
 legend_map2
 ```
+
+
+
+
+
+#Mapping the results for child poverty and Construction
+
+```{r output_data3}
+dist.err.data3 <- summary(all.dist.err.k1, correlation=TRUE, Nagelkerke = TRUE)
+
+dist.err.output3 <- cbind.data.frame(fl_pov$FIPS,
+                                    dist.err.data3$fitted.values, 
+                                    dist.err.data3$residual, 
+                                    fl_pov$child.pov.2016, 
+                                    fl_pov$lnretail, 
+                                    fl_pov$lnhealthss, 
+                                    fl_pov$lnincome_ratio,
+                                    fl_pov$lnconstruction,
+                                    stringsAsFactors = FALSE)
+
+#Renaming columns
+colnames(dist.err.output3) <- c("fips","fitted","resid","childpov",
+                        "Retail","Healthss","Income_Ratio","construction")
+```
+                        
+                        
+```{r fortify3}                        
+                        
+                        
+fl_fortify3 <- fortify(fl_sp)
+
+fl_poly3 <- merge(x = fl_fortify3, y = dist.err.output3, 
+                 by.x = "id", by.y = "fips", all = TRUE)
+
+bivariate_data3 <- bi_class(fl_poly3, x = childpov, y = construction, 
+                           dim = 3, style = "quantile")
+
+legend3 <- bi_legend(pal = "Brown",
+                    dim = 3,
+                    xlab = "Child Poverty",
+                    ylab = "In Construction",
+                    size = 6)
+                    
+                    
+```                    
+                    
+
+
+```{r subset_us_mapppp3}                 
+
+world <- map_data("world")
+states <- map_data("state")
+southern_states <- subset(states, region %in% 
+                            c("texas", "arkansas", "louisiana", "mississippi", 
+                              "alabama", "georgia", "florida", "north carolina",
+                              "south carolina", "tennessee", "oklahoma", 
+                              "kentucky", "west virginia", "virginia", 
+                              "maryland", "delaware", "district of columbia"))
+                              
+```
+
+```{r mapppp3}                             
+Construction_pov_map3 <- ggplot() + 
+  geom_polygon(data = world, aes(x=long,y=lat, group=group), fill = "gray95", color = "white") +
+  geom_polygon(data = states, aes(x=long,y=lat, group=group), fill = "gray", color = "white") +
+  geom_polygon(data = southern_states, aes(x=long,y=lat, group=group), fill = NA, size = 0.01, color = "white") +  
+  geom_polygon(data = bivariate_data3, aes(x=long, y=lat, group=group, fill = bi_class), color = "grey50", show.legend = FALSE) + 
+  bi_scale_fill(pal = "Brown", dim = 3) +
+  coord_map("conic", lat0 = 30, xlim=c(-88,-80), ylim=c(24,31)) +
+  theme_void() + theme(legend.title.align=0.5) +
+  theme(panel.background = element_rect(fill = 'deepskyblue'),
+        panel.grid.major = element_line(colour = NA)) +
+  labs(x = "Longitude", y = "Latitude", fill = "Child Poverty", 
+       title = "Bivariate Map of Child Poverty and Construction Work") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+Construction_pov_map3
+```
+
+```{r added legend3}
+legend_map3 <- ggdraw() +
+  draw_plot(Construction_pov_map3, 0, 0, 1, 1) +
+  draw_plot(legend3, -0.000000444, 0.12, 0.6, 0.30)
+legend_map3
+```
+
+
+
 
 
 
