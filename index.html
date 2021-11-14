@@ -590,22 +590,22 @@ summary(sp.lag.model, Nagelkerke = TRUE)</code></pre>
 ## test value: 4.1081, p-value: 0.042678</code></pre>
 <pre class="r"><code>summary(spatialreg::impacts(sp.lag.model, listw = cont.neighb, R=100), zstats = TRUE)[[&quot;pzmat&quot;]]</code></pre>
 <pre><code>##                    Direct  Indirect     Total
-## rural           0.2691677 0.4104939 0.2839445
-## urban           0.4688761 0.5983806 0.4870052
-## lnmanufacturing 0.6557914 0.7286087 0.6641632
-## lnag            0.2298855 0.4071740 0.2473521
-## lnretail        0.4569571 0.5534667 0.4635775
-## lnhealthss      0.3605268 0.4896946 0.3731092
-## lnconstruction  0.1676380 0.3257651 0.1817167
-## lnlesshs        0.1182359 0.3071086 0.1363556
-## lnunemployment  0.3164770 0.4583365 0.3359585
-## lnsinglemom     0.4703819 0.5873715 0.4892579
-## lnblack         0.5774853 0.6829620 0.5908925
-## lnhispanic      0.7949971 0.8776267 0.8099888
-## lnuninsured     0.3599898 0.4598864 0.3668744
-## lnincome_ratio  0.3681175 0.5243718 0.3883563
-## lnteenbirth     0.5062817 0.5698198 0.5061489
-## lnunmarried     0.9127985 0.9160638 0.9118575</code></pre>
+## rural           0.4423863 0.6238899 0.4698201
+## urban           0.5413601 0.6398479 0.5549393
+## lnmanufacturing 0.8925707 0.8979290 0.8899536
+## lnag            0.1389219 0.3139923 0.1580453
+## lnretail        0.4064966 0.5028163 0.4174475
+## lnhealthss      0.2926973 0.4783911 0.3244955
+## lnconstruction  0.1541267 0.3497336 0.1786986
+## lnlesshs        0.1230895 0.3153657 0.1349246
+## lnunemployment  0.3916257 0.6593536 0.4606395
+## lnsinglemom     0.3527887 0.4790775 0.3659430
+## lnblack         0.6048869 0.6312920 0.5999886
+## lnhispanic      0.7234465 0.8180972 0.7425068
+## lnuninsured     0.3166215 0.4085882 0.3063024
+## lnincome_ratio  0.4134268 0.6636350 0.4650196
+## lnteenbirth     0.3042123 0.4354665 0.3072576
+## lnunmarried     0.8275054 0.8608096 0.8318155</code></pre>
 <p>This model did have a significant p-value of 0.0426</p>
 <p>#Spatial Error Model</p>
 <pre class="r"><code>sp.err.model &lt;- spatialreg::errorsarlm(equation, data=fl_pov, cont.neighb)
