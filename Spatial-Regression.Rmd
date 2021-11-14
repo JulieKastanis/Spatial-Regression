@@ -1,21 +1,14 @@
+<body style="background-color:lightblue;">
+
+
 ---
-title: "R Notebook"
-output: html_notebook
+title: Spatial Regression Assignment
+output: html_document
+fig_width: 6 
+fig_height: 4 
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
-```{r}
-plot(cars)
-```
-
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
-
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
 
 
 ```{r library}
@@ -393,7 +386,7 @@ Distance     Lag     Model    Distance   Err    Model
 
 
 
-#Mapping the results 
+#Mapping the results for child poverty and Retail Work
 
 ```{r output_data}
 dist.err.data <- summary(all.dist.err.k1, correlation=TRUE, Nagelkerke = TRUE)
@@ -471,3 +464,181 @@ legend_map <- ggdraw() +
   draw_plot(legend, -0.000000444, 0.12, 0.6, 0.30)
 legend_map
 ```
+
+
+#Mapping the results for child poverty and Healthss
+
+```{r output_data1}
+dist.err.data1 <- summary(all.dist.err.k1, correlation=TRUE, Nagelkerke = TRUE)
+
+dist.err.output1 <- cbind.data.frame(fl_pov$FIPS,
+                                    dist.err.data1$fitted.values, 
+                                    dist.err.data1$residual, 
+                                    fl_pov$child.pov.2016, 
+                                    fl_pov$lnretail, 
+                                    fl_pov$lnhealthss, 
+                                    fl_pov$lnincome_ratio,
+                                    stringsAsFactors = FALSE)
+
+#Renaming columns
+colnames(dist.err.output1) <- c("fips","fitted","resid","childpov",
+                        "Retail","Healthss","Income Ratio")
+```
+                        
+                        
+```{r fortify1}                        
+                        
+                        
+fl_fortify1 <- fortify(fl_sp)
+
+fl_poly <- merge(x = fl_fortify, y = dist.err.output1, 
+                 by.x = "id", by.y = "fips", all = TRUE)
+
+bivariate_data1 <- bi_class(fl_poly, x = childpov, y = Healthss, 
+                           dim = 3, style = "quantile")
+
+legend1 <- bi_legend(pal = "GrPink",
+                    dim = 3,
+                    xlab = "Child Poverty",
+                    ylab = "Health SS",
+                    size = 6)
+                    
+                    
+```                    
+                    
+
+
+```{r subset_us_mapppp1}                 
+
+world <- map_data("world")
+states <- map_data("state")
+southern_states <- subset(states, region %in% 
+                            c("texas", "arkansas", "louisiana", "mississippi", 
+                              "alabama", "georgia", "florida", "north carolina",
+                              "south carolina", "tennessee", "oklahoma", 
+                              "kentucky", "west virginia", "virginia", 
+                              "maryland", "delaware", "district of columbia"))
+                              
+```
+
+```{r mapppp1}                             
+healthss_pov_map1 <- ggplot() + 
+  geom_polygon(data = world, aes(x=long,y=lat, group=group), fill = "gray95", color = "white") +
+  geom_polygon(data = states, aes(x=long,y=lat, group=group), fill = "gray", color = "white") +
+  geom_polygon(data = southern_states, aes(x=long,y=lat, group=group), fill = NA, size = 0.01, color = "white") +  
+  geom_polygon(data = bivariate_data1, aes(x=long, y=lat, group=group, fill = bi_class), color = "grey50", show.legend = FALSE) + 
+  bi_scale_fill(pal = "GrPink", dim = 3) +
+  coord_map("conic", lat0 = 30, xlim=c(-88,-80), ylim=c(24,31)) +
+  theme_void() + theme(legend.title.align=0.5) +
+  theme(panel.background = element_rect(fill = 'deepskyblue'),
+        panel.grid.major = element_line(colour = NA)) +
+  labs(x = "Longitude", y = "Latitude", fill = "Child Poverty", 
+       title = "Bivariate Map of Child Poverty and Health SS") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+healthss_pov_map1
+```
+
+
+```{r added legend1}
+legend_map1 <- ggdraw() +
+  draw_plot(healthss_pov_map1, 0, 0, 1, 1) +
+  draw_plot(legend1, -0.000000444, 0.12, 0.6, 0.30)
+legend_map1
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Mapping the results for child poverty and Income Ratio
+
+```{r output_data2}
+dist.err.data2 <- summary(all.dist.err.k1, correlation=TRUE, Nagelkerke = TRUE)
+
+dist.err.output2 <- cbind.data.frame(fl_pov$FIPS,
+                                    dist.err.data2$fitted.values, 
+                                    dist.err.data2$residual, 
+                                    fl_pov$child.pov.2016, 
+                                    fl_pov$lnretail, 
+                                    fl_pov$lnhealthss, 
+                                    fl_pov$lnincome_ratio,
+                                    stringsAsFactors = FALSE)
+
+#Renaming columns
+colnames(dist.err.output2) <- c("fips","fitted","resid","childpov",
+                        "Retail","Healthss","Income_Ratio")
+```
+                        
+                        
+```{r fortify2}                        
+                        
+                        
+fl_fortify2 <- fortify(fl_sp)
+
+fl_poly <- merge(x = fl_fortify, y = dist.err.output2, 
+                 by.x = "id", by.y = "fips", all = TRUE)
+
+bivariate_data2 <- bi_class(fl_poly, x = childpov, y = Income_Ratio, 
+                           dim = 3, style = "quantile")
+
+legend2 <- bi_legend(pal = "DkViolet",
+                    dim = 3,
+                    xlab = "Child Poverty",
+                    ylab = "Income Ratio",
+                    size = 6)
+                    
+                    
+```                    
+                    
+
+
+```{r subset_us_mapppp2}                 
+
+world <- map_data("world")
+states <- map_data("state")
+southern_states <- subset(states, region %in% 
+                            c("texas", "arkansas", "louisiana", "mississippi", 
+                              "alabama", "georgia", "florida", "north carolina",
+                              "south carolina", "tennessee", "oklahoma", 
+                              "kentucky", "west virginia", "virginia", 
+                              "maryland", "delaware", "district of columbia"))
+                              
+```
+
+```{r mapppp2}                             
+Income_pov_map2 <- ggplot() + 
+  geom_polygon(data = world, aes(x=long,y=lat, group=group), fill = "gray95", color = "white") +
+  geom_polygon(data = states, aes(x=long,y=lat, group=group), fill = "gray", color = "white") +
+  geom_polygon(data = southern_states, aes(x=long,y=lat, group=group), fill = NA, size = 0.01, color = "white") +  
+  geom_polygon(data = bivariate_data2, aes(x=long, y=lat, group=group, fill = bi_class), color = "grey50", show.legend = FALSE) + 
+  bi_scale_fill(pal = "DkViolet", dim = 3) +
+  coord_map("conic", lat0 = 30, xlim=c(-88,-80), ylim=c(24,31)) +
+  theme_void() + theme(legend.title.align=0.5) +
+  theme(panel.background = element_rect(fill = 'deepskyblue'),
+        panel.grid.major = element_line(colour = NA)) +
+  labs(x = "Longitude", y = "Latitude", fill = "Child Poverty", 
+       title = "Bivariate Map of Child Poverty and Income Ratio") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+Income_pov_map2
+```
+
+```{r added legend2}
+legend_map2 <- ggdraw() +
+  draw_plot(Income_pov_map2, 0, 0, 1, 1) +
+  draw_plot(legend2, -0.000000444, 0.12, 0.6, 0.30)
+legend_map2
+```
+
+
+
