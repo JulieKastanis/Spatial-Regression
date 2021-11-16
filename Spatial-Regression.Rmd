@@ -91,6 +91,11 @@ options(scipen = 5)
 ols <- lm(equation, data=fl_pov)
 summary(ols)
 ```
+There does show to be a significant p-value for OLS: p-value=.00001488. 
+
+Let's keep going and try some spatial tests. 
+
+
 
 
 #Creating a list of contiguity neighbors
@@ -134,8 +139,7 @@ cont.neighb <- nb2listw(neighb.data,style="W", zero.policy = TRUE)
 
 Now that we have created a spatial dataset and a list of neighbors, we can determine if there is any residual spatial dependence.
 # Moran's Correlation and LaGrange Multiplier Tests
-
-examines residuals of the OLS regression with a sptial relationship matrix
+examines residuals of the OLS regression with a spatial relationship matrix
 
 
 ```{r morans_correlation}
@@ -143,10 +147,12 @@ lm.morantest(ols, cont.neighb)
 ```
 Looking above, we can see a significant p-value of 0.007844, so we would reject the null hypothesis that says there is no spatial correlation in the residuals.
 
-**This would suggest we should be using a spatial model.
+**This would suggest we could use a spatial model to look at this data.
 
 
 #LaGrange Multiplier Test
+
+
 ```{r LaGrange_Test}
 lm.LMtests(ols, cont.neighb, test="all")
 ```
@@ -159,7 +165,7 @@ LMerr       LMlag        RLMerr     RLMlag    SARMA
 
 
 
-Closest model would be LMerr with a p-value of 0.1008, but is still high 
+Closest model would be LMerr with a p-value of 0.1008, but is still high. We can look at some other techniques.  
 
 
 
@@ -169,9 +175,15 @@ Closest model would be LMerr with a p-value of 0.1008, but is still high
 SLX.model <- spatialreg::lmSLX(equation, data=fl_pov, cont.neighb)
 summary(SLX.model)
 ```
-Note p-value of this model is significant, but no variables stick out here, except retail with a p-value of 0.079 
 
 
+One-way interaction where potentially our neighbors have an impact on us, but that is the limit of the interactions. 
+
+No significance among the lag variables.
+
+
+
+Now to examine the combined impacts of the x and lagged x variables. 
 ```{r SLX_summary}
 summary(spatialreg::impacts(SLX.model, cont.neighb), zstats = TRUE)[["pzmat"]]
 ```
@@ -179,17 +191,28 @@ summary(spatialreg::impacts(SLX.model, cont.neighb), zstats = TRUE)[["pzmat"]]
 Not much to see above. 
 
 
+
+
+
+
 #Spatial Lag Model
+
+
+Remember that the Spatial Lag Model is a global model where the dependent variable among our neighbors influences our dependent variable.
 ```{r spatial lag model}
 sp.lag.model <- spatialreg::lagsarlm(equation, data=fl_pov, cont.neighb)
 summary(sp.lag.model, Nagelkerke = TRUE)
 ```
 
+High non-significant p-value of 0.18231
+
+
 ```{r summary_spatial lag}
 summary(spatialreg::impacts(sp.lag.model, listw = cont.neighb, R=100), zstats = TRUE)[["pzmat"]]
 ```
-This model did have a significant p-value of 0.0426
 
+
+Now for closest spatial model: Spatial Error Model
 
 #Spatial Error Model
 
@@ -197,9 +220,7 @@ This model did have a significant p-value of 0.0426
 sp.err.model <- spatialreg::errorsarlm(equation, data=fl_pov, cont.neighb)
 summary(sp.err.model, Nagelkerke = TRUE)
 ```
-Note significant p-value
-
-
+**Note the significant p-value. The most significant variables are construction work with a p-value of 0.089 and less than high school degree with a p-value of 0.096. 
 
 
 
@@ -212,7 +233,19 @@ The Hausman test resulted in a high p-value of 0.5553, which would fail to rejec
 
 
 
+
+
+
+
+
+
 #Spatial Durbin Error Model
+
+
+
+The results of this model can determine if lagged y, error, or lagged x values are important in the model, or whether the model should be simplifed to include only the lagged y values (lag model), lagged x values (SLX), the errors (error model), or a simple OLS. The Spatial Durbin Error Model contains components of OLS, SLX, and Spatial Error models. The results of this model can determine if both errors and lagged x values are important in the model, or whether the model should be simplifed to include only the lagged x values (SLX), the errors (error model), or a simple OLS.
+
+
 The Spatial Durbin Error Model contains components of OLS, SLX, and Spatial Error models.
 
 ```{r Durbin_test}
@@ -227,7 +260,9 @@ Remembering that the Spatial Durbin Error Model is a local model which includes 
 ```{r summary_Durbin_model}
 summary(sd.err, Nagelkerke = TRUE)
 ```
-Model not significant with a p-value of 0.17444, but we do see some significance with variables: construction, income ratio, retail, and healthss
+
+Many of the lag variables, apart from retail and working in healthcare, were not significant, which supports use of an error model. 
+We do see some significance with variables: work in manufacturing, ag, construction, and income ratio.
 
 Examining the impacts matrix as we have before we can determine if the Spatial Durbin Error Model is the most appropriate model for our data or if we should restrict the model to a spatial error, SLX, or OLS model.
 
@@ -236,15 +271,17 @@ Examining the impacts matrix as we have before we can determine if the Spatial D
 summary(spatialreg::impacts(sd.err, listw = cont.neighb, R = 100), zstats = TRUE)[["pzmat"]]
 ```
 
-*** This model did however, produce significant results for variables retail and healthss, 
+*** This model did however, produce significant results for variables retail and healthss, but not many of the impacts are significant, meaning it may be best to use spatial error, SLX, or OLS models.
 
 
-This will help us test the HO that we should restrict the model to a more simple model. The first step is to determine if we should restrict the model from a Spatial Durbin Error model to a spatial error mode.
+This will help us test the HO that we should restrict the model to a more simple model.
+*****The first step is to determine if we should restrict the model from a Spatial Durbin Error model to a spatial error mode.
 
 ```{r spatial_error_model}
 LR.Sarlm(sd.err,sp.err.model)
 ```
-For this model, we would fail to reject the null hypothesis with a p-value of 0.079
+For this model, we would fail to reject the null hypothesis with a p-value of 0.079.
+****means restrict the model to a spatial error model.
 
 
 
@@ -252,7 +289,7 @@ For this model, we would fail to reject the null hypothesis with a p-value of 0.
 
 #Creating a list of K-neighbors
 
-reate xy data from the polygons
+create xy data from the polygons
 
 ```{r k-neighbors}
 all.xy <-centroid(fl_sp)
@@ -295,7 +332,7 @@ all.dist.neighb.k9 <- nb2listw(all.sp.dist.k9,style="W", zero.policy = TRUE)
 
 
 
-#Distance Lab Model
+#Distance Lag Model
 
 calculating distance for k=1, k=3, and k=5
 
@@ -307,7 +344,7 @@ all.dist.lag.k9 <- spatialreg::lagsarlm(equation, data = fl_pov, listw = all.dis
 ```
 
 
-Summary for k=1
+Summary for k=1 for distance lag model
 
 ```{r k=1}
 summary(all.dist.lag.k1, Nagelkerke = TRUE)
@@ -334,7 +371,6 @@ summary for k=5
 summary(all.dist.lag.k5, Nagelkerke = TRUE)
 ```
 
-Another high p-value when looking at k=5
 
 
 
@@ -369,20 +405,13 @@ all.dist.err.k9 <- spatialreg::errorsarlm(equation, data = fl_pov, listw = all.d
 
 
 
-
+**Distance error model for just k=1. 
 
 
 ```{r summary_k-distance error model}
 summary(all.dist.err.k1, Nagelkerke = TRUE)
 ```
 This model with k=1 was significant with a p-value of 0.0169, the closest variable is construction.
-
-
-
-Distance     Lag     Model    Distance   Err    Model
-
-
-
 
 
 
@@ -533,7 +562,7 @@ healthss_pov_map1 <- ggplot() +
   theme(panel.background = element_rect(fill = 'deepskyblue'),
         panel.grid.major = element_line(colour = NA)) +
   labs(x = "Longitude", y = "Latitude", fill = "Child Poverty", 
-       title = "Bivariate Map of Child Poverty and Health SS") +
+       title = "Bivariate Map of Child Poverty and Healthcare Work") +
   theme(plot.title = element_text(face = "bold", hjust = 0.5))
 healthss_pov_map1
 ```
@@ -725,7 +754,87 @@ legend_map3
 ```
 
 
+#Mapping the results for child poverty and less than a high school degree
 
+```{r output_data4}
+dist.err.data4 <- summary(all.dist.err.k1, correlation=TRUE, Nagelkerke = TRUE)
+
+dist.err.output4 <- cbind.data.frame(fl_pov$FIPS,
+                                    dist.err.data4$fitted.values, 
+                                    dist.err.data4$residual, 
+                                    fl_pov$child.pov.2016, 
+                                    fl_pov$lnretail, 
+                                    fl_pov$lnhealthss, 
+                                    fl_pov$lnincome_ratio,
+                                    fl_pov$lnconstruction,
+                                    fl_pov$lnlesshs,
+                                    stringsAsFactors = FALSE)
+
+#Renaming columns
+colnames(dist.err.output4) <- c("fips","fitted","resid","childpov",
+                        "Retail","Healthss","Income_Ratio","construction","less_high_school_degree")
+```
+                        
+                        
+```{r fortify4}                        
+                        
+                        
+fl_fortify4 <- fortify(fl_sp)
+
+fl_poly4 <- merge(x = fl_fortify4, y = dist.err.output4, 
+                 by.x = "id", by.y = "fips", all = TRUE)
+
+bivariate_data4 <- bi_class(fl_poly4, x = childpov, y = less_high_school_degree, 
+                           dim = 3, style = "quantile")
+
+legend4 <- bi_legend(pal = "Brown",
+                    dim = 3,
+                    xlab = "Child Poverty",
+                    ylab = "Less than a high school degree",
+                    size = 6)
+                    
+                    
+```                    
+                    
+
+
+```{r subset_us_mapppp4}                 
+
+world <- map_data("world")
+states <- map_data("state")
+southern_states <- subset(states, region %in% 
+                            c("texas", "arkansas", "louisiana", "mississippi", 
+                              "alabama", "georgia", "florida", "north carolina",
+                              "south carolina", "tennessee", "oklahoma", 
+                              "kentucky", "west virginia", "virginia", 
+                              "maryland", "delaware", "district of columbia"))
+                              
+```
+
+```{r mapppp4}                             
+HS_Degree_pov_map4 <- ggplot() + 
+  geom_polygon(data = world, aes(x=long,y=lat, group=group), fill = "gray95", color = "white") +
+  geom_polygon(data = states, aes(x=long,y=lat, group=group), fill = "gray", color = "white") +
+  geom_polygon(data = southern_states, aes(x=long,y=lat, group=group), fill = NA, size = 0.01, color = "white") +  
+  geom_polygon(data = bivariate_data4, aes(x=long, y=lat, group=group, fill = bi_class), color = "grey50", show.legend = FALSE) + 
+  bi_scale_fill(pal = "Brown", dim = 3) +
+  coord_map("conic", lat0 = 30, xlim=c(-88,-80), ylim=c(24,31)) +
+  theme_void() + theme(legend.title.align=0.5) +
+  theme(panel.background = element_rect(fill = 'deepskyblue'),
+        panel.grid.major = element_line(colour = NA)) +
+  labs(x = "Longitude", y = "Latitude", fill = "Child Poverty", 
+       title = "Bivariate Map of Child Poverty and Less than a High School Degree") +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+HS_Degree_pov_map4
+```
+
+
+```{r added legend4}
+legend_map4 <- ggdraw() +
+  draw_plot(HS_Degree_pov_map4, 0, 0, 1, 1) +
+  draw_plot(legend4, -0.000000444, 0.12, 0.6, 0.30)
+legend_map4
+```
 
 
 
